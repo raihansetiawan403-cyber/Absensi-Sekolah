@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .hidden { display: none !important; }
@@ -20,31 +22,51 @@
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        /* Simple loader */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tab-button.active {
+            border-color: #3b82f6;
+            color: #ffffff;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="loader"></div>
+    </div>
 
     <!-- Notification Toast -->
     <div id="notification" class="fixed top-5 right-5 bg-red-600 text-white py-2 px-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-[120%] z-50">
         <p id="notification-message"></p>
     </div>
 
-    <!-- Login View -->
-    <div id="login-view" class="flex items-center justify-center w-full view">
+    <div id="login-view" class="hidden items-center justify-center w-full view">
         <div class="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl">
             <div class="text-center">
-                
                 <h1 class="text-2xl font-bold text-white">Absensi Kelas XII-L</h1>
                 <p class="text-gray-400">SMAN 1 Dramaga</p>
             </div>
             <form id="login-form" class="space-y-4">
                 <div>
                     <label for="login-username" class="block mb-2 text-sm font-medium text-gray-300">Username</label>
-                    <input type="text" id="login-username" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Masukkan username" required>
+                    <input type="text" id="login-username" name="username" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Masukkan username" required>
                 </div>
                 <div>
                     <label for="login-password" class="block mb-2 text-sm font-medium text-gray-300">Password</label>
-                    <input type="password" id="login-password" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="•••••••••" required>
+                    <input type="password" id="login-password" name="password" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="•••••••••" required>
                 </div>
                 <button type="submit" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Login</button>
                 <p class="text-sm text-center text-gray-400">Belum punya akun? <a href="#" id="show-register-link" class="font-medium text-blue-500 hover:underline">Daftar di sini</a></p>
@@ -52,26 +74,25 @@
         </div>
     </div>
 
-    <!-- Register View -->
     <div id="register-view" class="hidden items-center justify-center w-full view">
         <div class="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl">
             <h1 class="text-2xl font-bold text-center text-white">Buat Akun Baru</h1>
             <form id="register-form" class="space-y-4">
                 <div>
                     <label for="register-name" class="block mb-2 text-sm font-medium text-gray-300">Nama Lengkap</label>
-                    <input type="text" id="register-name" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" required>
+                    <input type="text" id="register-name" name="name" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" required>
                 </div>
                 <div>
                     <label for="register-username" class="block mb-2 text-sm font-medium text-gray-300">Username</label>
-                    <input type="text" id="register-username" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" required>
+                    <input type="text" id="register-username" name="username" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" required>
                 </div>
                 <div>
                     <label for="register-birthYear" class="block mb-2 text-sm font-medium text-gray-300">Tahun Lahir</label>
-                    <input type="number" id="register-birthYear" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" placeholder="Contoh: 2007" required>
+                    <input type="number" id="register-birthYear" name="birthYear" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" placeholder="Contoh: 2007" required>
                 </div>
                 <div>
                     <label for="register-password" class="block mb-2 text-sm font-medium text-gray-300">Password</label>
-                    <input type="password" id="register-password" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" required>
+                    <input type="password" id="register-password" name="password" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5" required>
                 </div>
                 <button type="submit" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Daftar</button>
                 <p class="text-sm text-center text-gray-400">Sudah punya akun? <a href="#" id="show-login-link" class="font-medium text-blue-500 hover:underline">Login</a></p>
@@ -79,7 +100,6 @@
         </div>
     </div>
 
-    <!-- Base Dashboard Layout -->
     <div id="dashboard-layout" class="hidden min-h-screen bg-gray-900">
         <header class="bg-gray-800 shadow-md p-4 flex justify-between items-center">
             <div>
@@ -91,12 +111,137 @@
             </button>
         </header>
         <main class="p-4 sm:p-6">
-            <!-- Siswa Dashboard -->
-            <div id="siswa-dashboard-content" class="hidden">
-                 <div class="max-w-2xl mx-auto">
+            <div id="siswa-dashboard-content" class="hidden"></div>
+            <div id="walikelas-dashboard-content" class="hidden"></div>
+            <div id="admin-dashboard-content" class="hidden"></div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="user-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40"></div>
+    <div id="delete-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        // --- KONFIGURASI SUPABASE ---
+        const supabaseUrl = 'https://spytevrbpdfebisgtihn.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweXRldnJicGRmZWJpc2d0aWhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTY4OTYsImV4cCI6MjA3NjIzMjg5Nn0.UH5ZZtzHtu9IDNzeTmJ3k-7nlI3PNkOSHcE-nyfCr00';
+        
+        if (supabaseUrl === 'URL_PROYEK_ANDA_DISINI' || supabaseKey === 'ANON_KEY_ANDA_DISINI') {
+            document.body.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-center p-8 bg-red-900 rounded-lg"><h1 class="text-2xl font-bold">KONFIGURASI DIPERLUKAN!</h1><p class="mt-2 text-red-200">Buka file HTML ini, cari bagian 'KONFIGURASI SUPABASE', dan masukkan URL serta Key dari proyek Supabase Anda.</p></div></div>`;
+            return;
+        }
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        const views = { login: document.getElementById('login-view'), register: document.getElementById('register-view'), dashboard: document.getElementById('dashboard-layout'),};
+        const dashboards = { siswa: document.getElementById('siswa-dashboard-content'), walikelas: document.getElementById('walikelas-dashboard-content'), admin: document.getElementById('admin-dashboard-content'),};
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const logoutButton = document.getElementById('logout-button');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        let currentUser = null; 
+
+        const showLoading = (show) => { loadingOverlay.classList.toggle('hidden', !show); };
+        const getTodayDateString = () => new Date().toISOString().split('T')[0];
+        const showView = (viewName) => {
+            Object.values(views).forEach(v => v.classList.add('hidden'));
+            if (views[viewName]) views[viewName].classList.remove('hidden');
+        };
+        const showNotification = (message, isError = true) => {
+            const notif = document.getElementById('notification');
+            const notifMsg = document.getElementById('notification-message');
+            notifMsg.textContent = message;
+            notif.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-green-600'} translate-x-0`;
+            setTimeout(() => { notif.style.transform = 'translateX(120%)'; }, 3000);
+        };
+        const getRoleByBirthYear = (year) => {
+            if (year >= 2007 && year <= 2025) return 'siswa';
+            if (year >= 1990 && year <= 2006) return 'walikelas';
+            return null;
+        };
+        
+        // --- AUTHENTICATION ---
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading(true);
+            const { data, error } = await supabaseClient.from('profiles').select('*').eq('username', loginForm.username.value).eq('password', loginForm.password.value).single();
+            showLoading(false);
+            if (data) {
+                sessionStorage.setItem('loggedInUserId', data.id); 
+                await renderDashboard();
+            } else {
+                showNotification('Username atau password salah.');
+            }
+        });
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading(true);
+            const name = registerForm.name.value;
+            const username = registerForm.username.value;
+            const birthYear = parseInt(registerForm.birthYear.value);
+            const password = registerForm.password.value;
+            const role = getRoleByBirthYear(birthYear);
+            if (!role) {
+                showLoading(false);
+                showNotification('Tahun lahir tidak valid.'); return;
+            }
+            const { error } = await supabaseClient.from('profiles').insert({ username, password, name, birth_year: birthYear, role });
+            showLoading(false);
+            if (error) {
+                showNotification(error.code === '23505' ? 'Username sudah digunakan.' : 'Gagal mendaftar: ' + error.message);
+            } else {
+                showNotification('Pendaftaran berhasil! Silakan login.', false);
+                showView('login');
+                registerForm.reset();
+            }
+        });
+
+        logoutButton.addEventListener('click', () => {
+            sessionStorage.removeItem('loggedInUserId');
+            currentUser = null;
+            showView('login');
+        });
+
+        document.getElementById('show-register-link').addEventListener('click', (e) => { e.preventDefault(); showView('register'); });
+        document.getElementById('show-login-link').addEventListener('click', (e) => { e.preventDefault(); showView('login'); });
+
+        // --- DASHBOARD RENDERING ---
+        const renderDashboard = async () => {
+            const userId = sessionStorage.getItem('loggedInUserId');
+            if (!userId) { showView('login'); return; }
+            showLoading(true);
+            const { data, error } = await supabaseClient.from('profiles').select('*').eq('id', userId).single();
+            showLoading(false);
+            if (error || !data) {
+                showNotification('Gagal memuat data pengguna.');
+                sessionStorage.removeItem('loggedInUserId');
+                showView('login');
+                return;
+            }
+            currentUser = data;
+            document.getElementById('role-name').textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+            document.getElementById('user-name').textContent = currentUser.name;
+            Object.values(dashboards).forEach(d => d.classList.add('hidden'));
+            switch (currentUser.role) {
+                case 'siswa': await renderSiswaDashboard(); break;
+                case 'walikelas': await renderWaliKelasDashboard(); break;
+                case 'admin': await renderAdminDashboard(); break;
+            }
+            dashboards[currentUser.role].classList.remove('hidden');
+            showView('dashboard');
+        };
+
+        // --- SISWA DASHBOARD ---
+        const renderSiswaDashboard = async () => {
+            const container = dashboards.siswa;
+            container.innerHTML = `
+                <div class="max-w-2xl mx-auto">
                     <div id="absensi-form-container" class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
                         <h2 class="text-2xl font-bold mb-1">Absensi Hari Ini</h2>
-                        <p class="text-gray-400 mb-4" id="current-date"></p>
+                        <p class="text-gray-400 mb-4">${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                         <form id="absensi-form" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <button type="submit" name="status" value="Hadir" class="bg-green-600 hover:bg-green-700 p-4 rounded-lg font-bold text-lg"><i class="fas fa-check-circle mr-2"></i>Hadir</button>
                             <button type="submit" name="status" value="Sakit" class="bg-yellow-600 hover:bg-yellow-700 p-4 rounded-lg font-bold text-lg"><i class="fas fa-notes-medical mr-2"></i>Sakit</button>
@@ -104,544 +249,264 @@
                             <button type="submit" name="status" value="Alpa" class="bg-red-600 hover:bg-red-700 p-4 rounded-lg font-bold text-lg"><i class="fas fa-times-circle mr-2"></i>Alpa</button>
                         </form>
                     </div>
-                     <div id="absensi-filled-container" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg mb-6 text-center">
-                         <h2 class="text-2xl font-bold mb-2">Terima Kasih!</h2>
-                         <p class="text-gray-300">Anda sudah mengisi absensi hari ini dengan status:</p>
-                         <p id="absensi-status-today" class="text-2xl font-bold text-blue-400 mt-2"></p>
-                     </div>
+                    <div id="absensi-filled-container" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg mb-6 text-center">
+                        <h2 class="text-2xl font-bold mb-2">Terima Kasih!</h2>
+                        <p class="text-gray-300">Anda sudah mengisi absensi hari ini dengan status:</p>
+                        <p id="absensi-status-today" class="text-2xl font-bold text-blue-400 mt-2"></p>
+                    </div>
                     <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
                         <h3 class="text-xl font-bold mb-4">Riwayat Absensi Anda</h3>
                         <div id="siswa-history" class="space-y-3 max-h-96 overflow-y-auto"></div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Wali Kelas Dashboard -->
-            <div id="walikelas-dashboard-content" class="hidden">
-                 <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-bold mb-4">Rekap Absensi Siswa</h2>
-                    <div class="flex space-x-2 mb-4 border-b border-gray-700">
-                        <button class="tab-button py-2 px-4 text-white font-semibold border-b-2 border-blue-500" data-tab="harian">Harian</button>
-                        <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="mingguan">Mingguan</button>
-                        <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="bulanan">Bulanan</button>
-                    </div>
-                    <div id="rekap-harian" class="tab-content"></div>
-                    <div id="rekap-mingguan" class="tab-content hidden"></div>
-                    <div id="rekap-bulanan" class="tab-content hidden"></div>
-                 </div>
-            </div>
-
-            <!-- Admin Dashboard -->
-            <div id="admin-dashboard-content" class="hidden">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold">Manajemen Pengguna</h2>
-                        <button id="add-user-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm"><i class="fas fa-plus mr-2"></i>Tambah User</button>
-                    </div>
-                    <div id="user-management-table" class="overflow-x-auto"></div>
-                </div>
-                <!-- Add/Edit User Modal -->
-                <div id="user-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40">
-                    <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
-                        <h3 id="modal-title" class="text-xl font-bold mb-4">Tambah Pengguna Baru</h3>
-                        <form id="user-form">
-                            <input type="hidden" id="user-id">
-                            <div class="space-y-4">
-                                <div>
-                                    <label for="modal-name">Nama Lengkap</label>
-                                    <input type="text" id="modal-name" class="mt-1 w-full bg-gray-700 rounded-md p-2" required>
-                                </div>
-                                <div>
-                                    <label for="modal-username">Username</label>
-                                    <input type="text" id="modal-username" class="mt-1 w-full bg-gray-700 rounded-md p-2" required>
-                                </div>
-                                <div>
-                                    <label for="modal-birthYear">Tahun Lahir</label>
-                                    <input type="number" id="modal-birthYear" class="mt-1 w-full bg-gray-700 rounded-md p-2" required>
-                                </div>
-                                <div>
-                                    <label for="modal-password">Password (Kosongkan jika tidak diubah)</label>
-                                    <input type="password" id="modal-password" class="mt-1 w-full bg-gray-700 rounded-md p-2">
-                                </div>
-                                 <div>
-                                    <label for="modal-role">Role (Opsional, akan ditentukan otomatis jika kosong)</label>
-                                    <select id="modal-role" class="mt-1 w-full bg-gray-700 rounded-md p-2">
-                                        <option value="">Otomatis</option>
-                                        <option value="siswa">Siswa</option>
-                                        <option value="walikelas">Wali Kelas</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="mt-6 flex justify-end space-x-4">
-                                <button type="button" id="cancel-modal-btn" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Batal</button>
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Simpan</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- HARDCODED DATA ---
-        // Data pengguna: username, password, nama, tahun lahir, dan peran
-        let users = [
-            // Admin
-            { username: 'admin', password: 'password123', name: 'Administrator', birthYear: 1985, role: 'admin' },
-            // Wali Kelas
-            { username: 'walikelas', password: 'password123', name: 'Budi Santoso, S.Pd.', birthYear: 1995, role: 'walikelas' },
-            // Siswa
-            { username: 'andi', password: 'password123', name: 'Andi Pratama', birthYear: 2007, role: 'siswa' },
-            { username: 'siti', password: 'password123', name: 'Siti Aisyah', birthYear: 2008, role: 'siswa' },
-            { username: 'bambang', password: 'password123', name: 'Bambang Yudhoyono', birthYear: 2007, role: 'siswa' },
-        ];
-
-        // Data absensi: username, tanggal, dan status
-        let attendanceRecords = [
-            { username: 'andi', date: '2025-10-01', status: 'Hadir', timestamp: new Date('2025-10-01T07:05:00').toISOString() },
-            { username: 'siti', date: '2025-10-01', status: 'Hadir', timestamp: new Date('2025-10-01T07:10:00').toISOString() },
-            { username: 'bambang', date: '2025-10-01', status: 'Sakit', timestamp: new Date('2025-10-01T07:15:00').toISOString() },
-            { username: 'andi', date: '2025-10-02', status: 'Hadir', timestamp: new Date('2025-10-02T07:00:00').toISOString() },
-            { username: 'siti', date: '2025-10-02', status: 'Izin', timestamp: new Date('2025-10-02T06:55:00').toISOString() },
-             { username: 'bambang', date: '2025-10-02', status: 'Hadir', timestamp: new Date('2025-10-02T07:20:00').toISOString() },
-        ];
-
-        // --- DOM Elements ---
-        const views = {
-            login: document.getElementById('login-view'),
-            register: document.getElementById('register-view'),
-            dashboard: document.getElementById('dashboard-layout'),
-        };
-        const dashboards = {
-            siswa: document.getElementById('siswa-dashboard-content'),
-            walikelas: document.getElementById('walikelas-dashboard-content'),
-            admin: document.getElementById('admin-dashboard-content'),
-        };
-
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-        const absensiForm = document.getElementById('absensi-form');
-        const logoutButton = document.getElementById('logout-button');
-        
-        // --- UTILITY FUNCTIONS ---
-        const getTodayDateString = () => new Date().toISOString().split('T')[0];
-        
-        const showView = (viewName) => {
-            Object.values(views).forEach(v => v.classList.add('hidden'));
-            if(views[viewName]) {
-                views[viewName].classList.remove('hidden');
-                views[viewName].classList.add('flex');
-            }
-        };
-
-        const showNotification = (message, isError = true) => {
-            const notif = document.getElementById('notification');
-            const notifMsg = document.getElementById('notification-message');
-            notifMsg.textContent = message;
-            notif.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${isError ? 'bg-red-600' : 'bg-green-600'} translate-x-0`;
-            setTimeout(() => {
-                notif.style.transform = 'translateX(120%)';
-            }, 3000);
-        };
-
-        const getRoleByBirthYear = (year) => {
-            if (year >= 2007 && year <= 2025) return 'siswa';
-            if (year >= 1990 && year <= 2006) return 'walikelas';
-            return null; // or a default role
-        };
-        
-        // --- AUTHENTICATION ---
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
-            const user = users.find(u => u.username === username && u.password === password);
-            if (user) {
-                sessionStorage.setItem('loggedInUser', user.username);
-                renderDashboard();
-            } else {
-                showNotification('Username atau password salah.');
-            }
-        });
-
-        registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const name = document.getElementById('register-name').value;
-            const username = document.getElementById('register-username').value;
-            const birthYear = parseInt(document.getElementById('register-birthYear').value);
-            const password = document.getElementById('register-password').value;
-
-            if (users.some(u => u.username === username)) {
-                showNotification('Username sudah digunakan.');
-                return;
-            }
-
-            const role = getRoleByBirthYear(birthYear);
-            if (!role) {
-                showNotification('Tahun lahir tidak valid untuk peran siswa atau wali kelas.');
-                return;
-            }
-
-            users.push({ username, password, name, birthYear, role });
-            showNotification('Pendaftaran berhasil! Silakan login.', false);
-            showView('login');
-            registerForm.reset();
-        });
-
-        logoutButton.addEventListener('click', () => {
-            sessionStorage.removeItem('loggedInUser');
-            showView('login');
-        });
-
-        // Link handlers
-        document.getElementById('show-register-link').addEventListener('click', (e) => { e.preventDefault(); showView('register'); });
-        document.getElementById('show-login-link').addEventListener('click', (e) => { e.preventDefault(); showView('login'); });
-        
-        // --- DASHBOARD RENDERING ---
-        const renderDashboard = () => {
-            const username = sessionStorage.getItem('loggedInUser');
-            if (!username) {
-                showView('login');
-                return;
-            }
-            const user = users.find(u => u.username === username);
-            if (!user) {
-                showNotification('User tidak ditemukan, silakan login kembali.');
-                sessionStorage.removeItem('loggedInUser');
-                showView('login');
-                return;
-            }
-            
-            document.getElementById('role-name').textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
-            document.getElementById('user-name').textContent = user.name;
-            
-            Object.values(dashboards).forEach(d => d.classList.add('hidden'));
-            
-            switch (user.role) {
-                case 'siswa':
-                    renderSiswaDashboard(user);
-                    dashboards.siswa.classList.remove('hidden');
-                    break;
-                case 'walikelas':
-                    renderWaliKelasDashboard();
-                    dashboards.walikelas.classList.remove('hidden');
-                    break;
-                case 'admin':
-                    renderAdminDashboard();
-                    dashboards.admin.classList.remove('hidden');
-                    break;
-            }
-            showView('dashboard');
-            views.dashboard.classList.remove('flex'); // dashboard layout is block
-        };
-
-        // --- SISWA DASHBOARD ---
-        const renderSiswaDashboard = (user) => {
-            document.getElementById('current-date').textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            
-            const todayRecord = attendanceRecords.find(r => r.username === user.username && r.date === getTodayDateString());
+                </div>`;
+            showLoading(true);
+            const { data: todayRecord } = await supabaseClient.from('attendance').select('status').eq('user_id', currentUser.id).eq('date', getTodayDateString()).single();
             if (todayRecord) {
-                document.getElementById('absensi-form-container').classList.add('hidden');
-                const filledContainer = document.getElementById('absensi-filled-container');
+                container.querySelector('#absensi-form-container').classList.add('hidden');
+                const filledContainer = container.querySelector('#absensi-filled-container');
                 filledContainer.classList.remove('hidden');
-                document.getElementById('absensi-status-today').textContent = todayRecord.status;
-            } else {
-                 document.getElementById('absensi-form-container').classList.remove('hidden');
-                document.getElementById('absensi-filled-container').classList.add('hidden');
+                container.querySelector('#absensi-status-today').textContent = todayRecord.status;
             }
-
-            const historyContainer = document.getElementById('siswa-history');
-            const userHistory = attendanceRecords
-                .filter(r => r.username === user.username)
-                .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            if (userHistory.length === 0) {
-                historyContainer.innerHTML = `<p class="text-gray-500">Belum ada riwayat absensi.</p>`;
-                return;
-            }
-            historyContainer.innerHTML = userHistory.map(r => {
-                 const date = new Date(r.timestamp);
-                 const statusColor = { Hadir: 'text-green-400', Sakit: 'text-yellow-400', Izin: 'text-blue-400', Alpa: 'text-red-400' };
-                 return `
-                    <div class="bg-gray-700 p-3 rounded-md flex justify-between items-center">
+            const { data: history } = await supabaseClient.from('attendance').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            showLoading(false);
+            const historyContainer = container.querySelector('#siswa-history');
+            if (history && history.length > 0) {
+                historyContainer.innerHTML = history.map(r => {
+                    const date = new Date(r.created_at);
+                    const statusColor = { Hadir: 'text-green-400', Sakit: 'text-yellow-400', Izin: 'text-blue-400', Alpa: 'text-red-400' };
+                    return `<div class="bg-gray-700 p-3 rounded-md flex justify-between items-center">
                         <div>
                             <p class="font-semibold">${date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
                             <p class="text-sm text-gray-400">Pukul ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         <span class="font-bold ${statusColor[r.status] || 'text-gray-400'}">${r.status}</span>
-                    </div>
-                `;
-            }).join('');
-        };
-
-        absensiForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const status = e.submitter.value;
-            const username = sessionStorage.getItem('loggedInUser');
-            attendanceRecords.push({
-                username: username,
-                date: getTodayDateString(),
-                status: status,
-                timestamp: new Date().toISOString(),
+                    </div>`;
+                }).join('');
+            } else {
+                historyContainer.innerHTML = `<p class="text-gray-500">Belum ada riwayat absensi.</p>`;
+            }
+            container.querySelector('#absensi-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                showLoading(true);
+                const { error } = await supabaseClient.from('attendance').insert({ user_id: currentUser.id, date: getTodayDateString(), status: e.submitter.value });
+                showLoading(false);
+                if (error) showNotification('Gagal menyimpan absensi: ' + error.message);
+                else {
+                    showNotification(`Absensi "${e.submitter.value}" berhasil dicatat.`, false);
+                    await renderSiswaDashboard(); 
+                }
             });
-            showNotification(`Absensi "${status}" berhasil dicatat.`, false);
-            renderDashboard();
-        });
+        };
 
         // --- WALI KELAS DASHBOARD ---
-        const renderWaliKelasDashboard = () => {
-            renderRekapHarian();
-            renderRekapMingguan();
-            renderRekapBulanan();
-            setupTabs();
-        };
+        const renderWaliKelasDashboard = async () => {
+            dashboards.walikelas.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4">Rekap Absensi Siswa</h2>
+                    <div class="flex space-x-2 mb-4 border-b border-gray-700">
+                        <button class="tab-button py-2 px-4 font-semibold border-b-2" data-tab="harian">Harian</button>
+                        <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="mingguan">Mingguan</button>
+                        <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="bulanan">Bulanan</button>
+                    </div>
+                    <div id="rekap-content"></div>
+                </div>`;
 
-        const generateRekapTable = (title, data) => {
-            if(data.length === 0) return `<h3 class="text-lg font-semibold mb-2">${title}</h3><p class="text-gray-500">Tidak ada data absensi.</p>`;
-            let tableHTML = `<h3 class="text-lg font-semibold mb-2">${title}</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300">
-                    <thead class="text-xs text-gray-400 uppercase bg-gray-700">
-                        <tr><th scope="col" class="px-6 py-3">Nama Siswa</th><th scope="col" class="px-6 py-3">Status</th><th scope="col" class="px-6 py-3">Waktu</th></tr>
-                    </thead><tbody>`;
-            data.forEach(item => {
-                const user = users.find(u => u.username === item.username);
-                const time = new Date(item.timestamp).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
-                tableHTML += `<tr class="bg-gray-800 border-b border-gray-700">
-                    <td class="px-6 py-4 font-medium">${user ? user.name : item.username}</td>
-                    <td class="px-6 py-4">${item.status}</td>
-                    <td class="px-6 py-4">${time}</td>
-                </tr>`;
-            });
-            tableHTML += `</tbody></table></div>`;
-            return tableHTML;
-        };
-        
-         const generateSummaryTable = (title, data) => {
-            let tableHTML = `<h3 class="text-lg font-semibold mb-2">${title}</h3>
-                <div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300">
-                    <thead class="text-xs text-gray-400 uppercase bg-gray-700">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Nama Siswa</th>
-                            <th scope="col" class="px-6 py-3 text-center">Hadir</th>
-                            <th scope="col" class="px-6 py-3 text-center">Sakit</th>
-                            <th scope="col" class="px-6 py-3 text-center">Izin</th>
-                            <th scope="col" class="px-6 py-3 text-center">Alpa</th>
-                        </tr>
-                    </thead><tbody>`;
-            Object.keys(data).forEach(username => {
-                const user = users.find(u => u.username === username);
-                const summary = data[username];
-                tableHTML += `<tr class="bg-gray-800 border-b border-gray-700">
-                    <td class="px-6 py-4 font-medium">${user ? user.name : username}</td>
-                    <td class="px-6 py-4 text-center">${summary.Hadir || 0}</td>
-                    <td class="px-6 py-4 text-center">${summary.Sakit || 0}</td>
-                    <td class="px-6 py-4 text-center">${summary.Izin || 0}</td>
-                    <td class="px-6 py-4 text-center">${summary.Alpa || 0}</td>
-                </tr>`;
-            });
-            tableHTML += `</tbody></table></div>`;
-            return tableHTML;
-        };
-
-
-        const renderRekapHarian = () => {
-            const todayStr = getTodayDateString();
-            const todayRecords = attendanceRecords
-                .filter(r => r.date === todayStr)
-                .sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
-            document.getElementById('rekap-harian').innerHTML = generateRekapTable(`Rekap Tanggal ${new Date().toLocaleDateString('id-ID')}`, todayRecords);
-        };
-        
-        const renderRekapMingguan = () => {
-            const now = new Date();
-            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1) )); // Monday
-            const endOfWeek = new Date(now.setDate(startOfWeek.getDate() + 6)); // Sunday
+            const rekapContent = dashboards.walikelas.querySelector('#rekap-content');
+            const tabs = dashboards.walikelas.querySelectorAll('.tab-button');
             
-            const weeklyRecords = attendanceRecords.filter(r => {
-                const recDate = new Date(r.date);
-                return recDate >= startOfWeek && recDate <= endOfWeek;
-            });
-
-            const summary = {};
-            const studentUsers = users.filter(u => u.role === 'siswa');
-            studentUsers.forEach(s => {
-                summary[s.username] = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0 };
-            });
-
-            weeklyRecords.forEach(rec => {
-                if(summary[rec.username] && summary[rec.username][rec.status] !== undefined) {
-                    summary[rec.username][rec.status]++;
+            const activateTab = async (tabName) => {
+                showLoading(true);
+                tabs.forEach(t => t.classList.remove('active', 'text-white', 'border-blue-500'));
+                dashboards.walikelas.querySelector(`[data-tab="${tabName}"]`).classList.add('active', 'text-white', 'border-blue-500');
+                
+                if (tabName === 'harian') {
+                    const { data } = await supabaseClient.from('attendance').select('*, profiles(name)').eq('date', getTodayDateString()).order('created_at');
+                    rekapContent.innerHTML = generateRekapHarianTable(data);
+                } else {
+                    const { startDate, endDate, title } = getRekapDates(tabName);
+                    const { data } = await supabaseClient.from('attendance').select('*, profiles(id, name)').gte('date', startDate).lte('date', endDate).filter('profiles.role', 'eq', 'siswa');
+                    const { data: allSiswa } = await supabaseClient.from('profiles').select('id, name').eq('role', 'siswa');
+                    rekapContent.innerHTML = generateRekapSummaryTable(data, allSiswa, title);
                 }
-            });
-            document.getElementById('rekap-mingguan').innerHTML = generateSummaryTable(`Rekap Minggu Ini (${startOfWeek.toLocaleDateString('id-ID')} - ${endOfWeek.toLocaleDateString('id-ID')})`, summary);
+                showLoading(false);
+            };
+
+            tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
+            await activateTab('harian');
         };
-        
-        const renderRekapBulanan = () => {
+
+        const getRekapDates = (period) => {
             const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            if (period === 'mingguan') {
+                const firstDay = now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1);
+                const startDate = new Date(now.setDate(firstDay));
+                const endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 6);
+                return { startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], title: 'Rekap Minggu Ini' };
+            }
+            if (period === 'bulanan') {
+                const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                return { startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], title: `Rekap Bulan ${now.toLocaleString('id-ID', { month: 'long' })}` };
+            }
+        };
 
-             const monthlyRecords = attendanceRecords.filter(r => {
-                const recDate = new Date(r.date);
-                return recDate >= startOfMonth && recDate <= endOfMonth;
+        const generateRekapHarianTable = (records) => {
+            if (!records || records.length === 0) return `<p class="text-gray-500">Belum ada absensi hari ini.</p>`;
+            let table = `<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama Siswa</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Waktu</th></tr></thead><tbody>`;
+            records.forEach(r => {
+                table += `<tr class="bg-gray-800 border-b border-gray-700"><td class="px-6 py-4 font-medium">${r.profiles.name}</td><td class="px-6 py-4">${r.status}</td><td class="px-6 py-4">${new Date(r.created_at).toLocaleTimeString('id-ID')}</td></tr>`;
             });
+            return table + `</tbody></table></div>`;
+        };
 
-            const summary = {};
-            const studentUsers = users.filter(u => u.role === 'siswa');
-            studentUsers.forEach(s => {
-                summary[s.username] = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0 };
-            });
-
-            monthlyRecords.forEach(rec => {
-                if(summary[rec.username] && summary[rec.username][rec.status] !== undefined) {
-                    summary[rec.username][rec.status]++;
+        const generateRekapSummaryTable = (records, allSiswa, title) => {
+            const summary = allSiswa.reduce((acc, siswa) => {
+                acc[siswa.id] = { name: siswa.name, Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0 };
+                return acc;
+            }, {});
+            records.forEach(r => {
+                if (summary[r.profiles.id] && summary[r.profiles.id][r.status] !== undefined) {
+                    summary[r.profiles.id][r.status]++;
                 }
             });
-            document.getElementById('rekap-bulanan').innerHTML = generateSummaryTable(`Rekap Bulan ${now.toLocaleString('id-ID', {month: 'long', year:'numeric'})}`, summary);
+            let table = `<h3 class="text-lg font-semibold mb-4">${title}</h3><div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3 text-center">Hadir</th><th class="px-6 py-3 text-center">Sakit</th><th class="px-6 py-3 text-center">Izin</th><th class="px-6 py-3 text-center">Alpa</th></tr></thead><tbody>`;
+            for (const id in summary) {
+                const s = summary[id];
+                table += `<tr class="bg-gray-800 border-b border-gray-700"><td class="px-6 py-4 font-medium">${s.name}</td><td class="px-6 py-4 text-center">${s.Hadir}</td><td class="px-6 py-4 text-center">${s.Sakit}</td><td class="px-6 py-4 text-center">${s.Izin}</td><td class="px-6 py-4 text-center">${s.Alpa}</td></tr>`;
+            }
+            return table + `</tbody></table></div>`;
         };
 
-        const setupTabs = () => {
-            const tabs = document.querySelectorAll('.tab-button');
-            const contents = document.querySelectorAll('.tab-content');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach(t => {
-                        t.classList.remove('text-white', 'border-blue-500');
-                        t.classList.add('text-gray-400', 'border-transparent');
-                    });
-                    contents.forEach(c => c.classList.add('hidden'));
-
-                    tab.classList.add('text-white', 'border-blue-500');
-                    tab.classList.remove('text-gray-400', 'border-transparent');
-                    document.getElementById(`rekap-${tab.dataset.tab}`).classList.remove('hidden');
-                });
-            });
-        };
-        
         // --- ADMIN DASHBOARD ---
-        const renderAdminDashboard = () => {
-            const tableContainer = document.getElementById('user-management-table');
-            let tableHTML = `<table class="w-full text-sm text-left text-gray-300">
-                <thead class="text-xs text-gray-400 uppercase bg-gray-700">
-                    <tr>
-                        <th class="px-6 py-3">Nama</th><th class="px-6 py-3">Username</th>
-                        <th class="px-6 py-3">Tahun Lahir</th><th class="px-6 py-3">Role</th>
-                        <th class="px-6 py-3">Aksi</th>
-                    </tr>
-                </thead><tbody>`;
+        const renderAdminDashboard = async () => {
+            showLoading(true);
+            const { data: users } = await supabaseClient.from('profiles').select('*').order('name');
+            showLoading(false);
 
-            users.forEach((user, index) => {
-                tableHTML += `<tr class="bg-gray-800 border-b border-gray-700">
-                    <td class="px-6 py-4 font-medium">${user.name}</td>
-                    <td class="px-6 py-4">${user.username}</td>
-                    <td class="px-6 py-4">${user.birthYear}</td>
-                    <td class="px-6 py-4 capitalize">${user.role}</td>
-                    <td class="px-6 py-4 flex space-x-2">
-                        <button class="edit-user-btn text-blue-400 hover:text-blue-300" data-index="${index}"><i class="fas fa-edit"></i></button>
-                        <button class="delete-user-btn text-red-400 hover:text-red-300" data-username="${user.username}"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>`;
-            });
-            tableHTML += `</tbody></table>`;
-            tableContainer.innerHTML = tableHTML;
-
-            // Re-attach event listeners
-            document.querySelectorAll('.edit-user-btn').forEach(btn => btn.addEventListener('click', handleEditUser));
-            document.querySelectorAll('.delete-user-btn').forEach(btn => btn.addEventListener('click', handleDeleteUser));
-        };
-        
-        const userModal = document.getElementById('user-modal');
-        const userForm = document.getElementById('user-form');
-
-        document.getElementById('add-user-btn').addEventListener('click', () => {
-            userForm.reset();
-            document.getElementById('user-id').value = '';
-            document.getElementById('modal-title').textContent = 'Tambah Pengguna Baru';
-            document.getElementById('modal-username').disabled = false;
-            userModal.classList.remove('hidden');
-        });
-        
-        document.getElementById('cancel-modal-btn').addEventListener('click', () => {
-            userModal.classList.add('hidden');
-        });
-
-        const handleEditUser = (e) => {
-            const index = e.currentTarget.dataset.index;
-            const user = users[index];
-            document.getElementById('modal-title').textContent = 'Edit Pengguna';
-            document.getElementById('user-id').value = index;
-            document.getElementById('modal-name').value = user.name;
-            document.getElementById('modal-username').value = user.username;
-            document.getElementById('modal-username').disabled = true; // Cannot change username
-            document.getElementById('modal-birthYear').value = user.birthYear;
-            document.getElementById('modal-password').value = '';
-            document.getElementById('modal-role').value = user.role;
-            userModal.classList.remove('hidden');
-        };
-
-        const handleDeleteUser = (e) => {
-            const username = e.currentTarget.dataset.username;
-            if(confirm(`Apakah Anda yakin ingin menghapus pengguna "${username}"?`)) {
-                users = users.filter(u => u.username !== username);
-                // Also delete their attendance records
-                attendanceRecords = attendanceRecords.filter(r => r.username !== username);
-                renderAdminDashboard();
-                showNotification(`Pengguna ${username} berhasil dihapus.`, false);
-            }
-        };
-
-        userForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const id = document.getElementById('user-id').value;
-            const name = document.getElementById('modal-name').value;
-            const username = document.getElementById('modal-username').value;
-            const birthYear = parseInt(document.getElementById('modal-birthYear').value);
-            const password = document.getElementById('modal-password').value;
-            let role = document.getElementById('modal-role').value;
-
-            if (role === '') {
-                role = getRoleByBirthYear(birthYear) || 'siswa'; // default to siswa if year out of range
-            }
+            dashboards.admin.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">Manajemen Pengguna</h2>
+                        <button id="add-user-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm"><i class="fas fa-plus mr-2"></i>Tambah User</button>
+                    </div>
+                    <div id="user-management-table" class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3">Username</th><th class="px-6 py-3">Role</th><th class="px-6 py-3">Aksi</th></tr></thead>
+                        <tbody>
+                            ${users.map(user => `
+                                <tr class="bg-gray-800 border-b border-gray-700">
+                                    <td class="px-6 py-4 font-medium">${user.name}</td>
+                                    <td class="px-6 py-4">${user.username}</td>
+                                    <td class="px-6 py-4 capitalize">${user.role}</td>
+                                    <td class="px-6 py-4 flex space-x-2">
+                                        <button class="edit-user-btn text-blue-400 hover:text-blue-300" data-id="${user.id}"><i class="fas fa-edit"></i></button>
+                                        <button class="delete-user-btn text-red-400 hover:text-red-300" data-id="${user.id}" data-name="${user.name}"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>`).join('')}
+                        </tbody></table>
+                    </div>
+                </div>`;
             
-            if (id) { // Editing
-                const user = users[id];
-                user.name = name;
-                user.birthYear = birthYear;
-                user.role = role;
-                if(password) user.password = password;
-                showNotification('Data pengguna berhasil diperbarui.', false);
-            } else { // Adding
-                if (users.some(u => u.username === username)) {
-                    showNotification('Username sudah ada.');
-                    return;
-                }
-                if (!password) {
-                    showNotification('Password wajib diisi untuk pengguna baru.');
-                    return;
-                }
-                users.push({ name, username, birthYear, password, role });
-                showNotification('Pengguna baru berhasil ditambahkan.', false);
-            }
-            userModal.classList.add('hidden');
-            renderAdminDashboard();
-        });
+            dashboards.admin.querySelector('#add-user-btn').addEventListener('click', () => showUserModal());
+            dashboards.admin.querySelectorAll('.edit-user-btn').forEach(btn => btn.addEventListener('click', (e) => showUserModal(e.currentTarget.dataset.id)));
+            dashboards.admin.querySelectorAll('.delete-user-btn').forEach(btn => btn.addEventListener('click', (e) => showDeleteModal(e.currentTarget.dataset.id, e.currentTarget.dataset.name)));
+        };
 
+        const showUserModal = async (userId = null) => {
+            let user = {};
+            if (userId) {
+                showLoading(true);
+                const { data } = await supabaseClient.from('profiles').select('*').eq('id', userId).single();
+                user = data || {};
+                showLoading(false);
+            }
+            const modalContainer = document.getElementById('user-modal');
+            modalContainer.innerHTML = `
+                <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+                    <h3 id="modal-title" class="text-xl font-bold mb-4">${userId ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}</h3>
+                    <form id="user-form">
+                        <div class="space-y-4">
+                            <div><label>Nama Lengkap</label><input type="text" name="name" class="mt-1 w-full bg-gray-700 rounded-md p-2" value="${user.name || ''}" required></div>
+                            <div><label>Username</label><input type="text" name="username" class="mt-1 w-full bg-gray-700 rounded-md p-2" value="${user.username || ''}" ${userId ? 'disabled' : ''} required></div>
+                            <div><label>Tahun Lahir</label><input type="number" name="birthYear" class="mt-1 w-full bg-gray-700 rounded-md p-2" value="${user.birth_year || ''}" required></div>
+                            <div><label>Password (Kosongkan jika tidak diubah)</label><input type="password" name="password" class="mt-1 w-full bg-gray-700 rounded-md p-2"></div>
+                            <div><label>Role</label><select name="role" class="mt-1 w-full bg-gray-700 rounded-md p-2"><option value="">Otomatis</option><option value="siswa" ${user.role === 'siswa' ? 'selected' : ''}>Siswa</option><option value="walikelas" ${user.role === 'walikelas' ? 'selected' : ''}>Wali Kelas</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option></select></div>
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-4">
+                            <button type="button" id="cancel-modal-btn" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Batal</button>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Simpan</button>
+                        </div>
+                    </form>
+                </div>`;
+            modalContainer.classList.remove('hidden');
+            modalContainer.querySelector('#cancel-modal-btn').addEventListener('click', () => modalContainer.classList.add('hidden'));
+            modalContainer.querySelector('#user-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const userData = {
+                    name: form.name.value,
+                    birth_year: parseInt(form.birthYear.value),
+                    role: form.role.value || getRoleByBirthYear(parseInt(form.birthYear.value)),
+                };
+                if (!userId) userData.username = form.username.value;
+                if (form.password.value) userData.password = form.password.value;
+
+                showLoading(true);
+                const { error } = userId
+                    ? await supabaseClient.from('profiles').update(userData).eq('id', userId)
+                    : await supabaseClient.from('profiles').insert(userData);
+                showLoading(false);
+
+                if (error) showNotification('Gagal menyimpan: ' + error.message);
+                else {
+                    showNotification(`Data pengguna berhasil ${userId ? 'diperbarui' : 'ditambahkan'}.`, false);
+                    modalContainer.classList.add('hidden');
+                    await renderAdminDashboard();
+                }
+            });
+        };
+
+        const showDeleteModal = (userId, name) => {
+            if (userId === currentUser.id) {
+                showNotification('Tidak dapat menghapus akun sendiri.'); return;
+            }
+            const modalContainer = document.getElementById('delete-confirm-modal');
+            modalContainer.innerHTML = `
+                <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm text-center">
+                    <h3 class="text-xl font-bold mb-2 text-red-400">Konfirmasi Hapus</h3>
+                    <p class="mb-6 text-gray-300">Yakin ingin menghapus pengguna "${name}"? Seluruh data absensinya juga akan terhapus.</p>
+                    <div class="flex justify-center space-x-4">
+                        <button id="cancel-delete-btn" class="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded-lg font-semibold">Batal</button>
+                        <button id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg font-semibold">Hapus</button>
+                    </div>
+                </div>`;
+            modalContainer.classList.remove('hidden');
+            modalContainer.querySelector('#cancel-delete-btn').addEventListener('click', () => modalContainer.classList.add('hidden'));
+            modalContainer.querySelector('#confirm-delete-btn').addEventListener('click', async () => {
+                showLoading(true);
+                // Hapus absensi terkait terlebih dahulu
+                await supabaseClient.from('attendance').delete().eq('user_id', userId);
+                // Hapus profil pengguna
+                const { error } = await supabaseClient.from('profiles').delete().eq('id', userId);
+                showLoading(false);
+                if (error) showNotification('Gagal menghapus: ' + error.message);
+                else {
+                    showNotification(`Pengguna "${name}" berhasil dihapus.`, false);
+                    modalContainer.classList.add('hidden');
+                    await renderAdminDashboard();
+                }
+            });
+        };
 
         // --- INITIAL LOAD ---
-        const init = () => {
-            const loggedInUser = sessionStorage.getItem('loggedInUser');
-            if (loggedInUser) {
-                renderDashboard();
-            } else {
-                showView('login');
-            }
+        const init = async () => {
+            const loggedInUserId = sessionStorage.getItem('loggedInUserId');
+            if (loggedInUserId) await renderDashboard();
+            else showView('login');
         };
-
-        init();
+        await init();
     });
     </script>
 </body>
 </html>
+
