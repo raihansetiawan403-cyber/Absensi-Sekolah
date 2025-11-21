@@ -53,7 +53,8 @@
         <p id="notification-message"></p>
     </div>
 
-    <div id="login-view" class="hidden items-center justify-center w-full view">
+    <!-- PERBAIKAN: "flex" ditambahkan di sini agar 'items-center' dan 'justify-center' berfungsi -->
+    <div id="login-view" class="hidden flex items-center justify-center w-full view">
         <div class="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl">
             <div class="text-center">
                 <h1 class="text-2xl font-bold text-white">Absensi Kelas XII-L</h1>
@@ -74,7 +75,8 @@
         </div>
     </div>
 
-    <div id="register-view" class="hidden items-center justify-center w-full view">
+    <!-- PERBAIKAN: "flex" ditambahkan di sini -->
+    <div id="register-view" class="hidden flex items-center justify-center w-full view">
         <div class="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-xl shadow-2xl">
             <h1 class="text-2xl font-bold text-center text-white">Buat Akun Baru</h1>
             <form id="register-form" class="space-y-4">
@@ -128,7 +130,7 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweXRldnJicGRmZWJpc2d0aWhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTY4OTYsImV4cCI6MjA3NjIzMjg5Nn0.UH5ZZtzHtu9IDNzeTmJ3k-7nlI3PNkOSHcE-nyfCr00';
         
         if (supabaseUrl === 'URL_PROYEK_ANDA_DISINI' || supabaseKey === 'ANON_KEY_ANDA_DISINI') {
-            document.body.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-center p-8 bg-red-900 rounded-lg"><h1 class="text-2xl font-bold">KONFIGURASI DIPERLUKAN!</h1><p class="mt-2 text-red-200">Buka file HTML ini, cari bagian 'KONFIGURASI SUPABASE', dan masukkan URL serta Key dari proyek Supabase Anda.</p></div></div>`;
+            document.body.innerHTML = `<div class="flex items-center justify-center h-screen"><div class="text-center p-8 bg-red-900 rounded-lg"><h1 class="text-2xl font-bold">KONFIGURASI DIPERLUKAN!</h1><p class="mt-2 text-red-200">Buka file HTML ini, cari bagian 'KONFIGURASI SUPABASE', dan masukkan URL serta Key dari proyek SupABASE Anda.</p></div></div>`;
             return;
         }
         
@@ -145,10 +147,21 @@
 
         const showLoading = (show) => { loadingOverlay.classList.toggle('hidden', !show); };
         const getTodayDateString = () => new Date().toISOString().split('T')[0];
+        
+        // PERBAIKAN: Fungsi showView di-update agar menambahkan 'flex' ke login/register
         const showView = (viewName) => {
             Object.values(views).forEach(v => v.classList.add('hidden'));
-            if (views[viewName]) views[viewName].classList.remove('hidden');
+            if (views[viewName]) {
+                views[viewName].classList.remove('hidden');
+                // Hanya login dan register yang butuh 'flex' untuk centering
+                if (viewName === 'login' || viewName === 'register') {
+                    views[viewName].classList.add('flex');
+                } else {
+                    views[viewName].classList.remove('flex');
+                }
+            }
         };
+
         const showNotification = (message, isError = true) => {
             const notif = document.getElementById('notification');
             const notifMsg = document.getElementById('notification-message');
@@ -162,15 +175,59 @@
             return null;
         };
         
+        // FUNGSI UNTUK MENAMBAH DATA DEFAULT JIKA DATABASE KOSONG
+        const initializeDefaultData = async () => {
+            const { data, error, count } = await supabaseClient.from('profiles').select('*', { count: 'exact', head: true });
+
+            if (error && error.code === '42501') {
+                console.error("Critical Error: RLS (Row Level Security) masih aktif. Silakan matikan RLS di dashboard Supabase.");
+                showNotification("CRITICAL ERROR: RLS masih aktif. Matikan di Supabase > Authentication > Policies.");
+                return; 
+            }
+            
+            if (count === 0) {
+                console.log("Database kosong, menambahkan data default...");
+                const defaultUsers = [
+                    { username: 'superadmin', password: 'admin123', name: 'Administrator', birth_year: 1985, role: 'admin' },
+                    { username: 'walikelas', password: 'password123', name: 'Budi Santoso, S.Pd.', birth_year: 1995, role: 'walikelas' },
+                    { username: 'andi', password: 'password123', name: 'Andi Pratama', birth_year: 2007, role: 'siswa' },
+                    { username: 'siti', password: 'password123', name: 'Siti Aisyah', birth_year: 2008, role: 'siswa' },
+                    { username: 'bambang', password: 'password123', name: 'Bambang Yudhoyono', birth_year: 2007, role: 'siswa' },
+                ];
+                const { error: insertError } = await supabaseClient.from('profiles').insert(defaultUsers);
+                
+                if (insertError) {
+                    if (insertError.message.includes("violates row-level security policy")) {
+                        console.error("Critical Error: RLS (Row Level Security) masih aktif di tabel 'profiles'. Silakan matikan RLS.");
+                        showNotification("CRITICAL ERROR: RLS masih aktif. Matikan di Supabase > Authentication > Policies.");
+                    } else {
+                        console.error("Gagal menambahkan data default:", insertError.message);
+                    }
+                }
+            } else {
+                console.log("Database sudah berisi data, inisialisasi dilewati.");
+            }
+        };
+
         // --- AUTHENTICATION ---
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             showLoading(true);
-            const { data, error } = await supabaseClient.from('profiles').select('*').eq('username', loginForm.username.value).eq('password', loginForm.password.value).single();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const { data, error } = await supabaseClient.from('profiles').select('*').eq('username', username).eq('password', password).single();
             showLoading(false);
-            if (data) {
+            
+            if (data && !error) {
                 sessionStorage.setItem('loggedInUserId', data.id); 
                 await renderDashboard();
+            } else if (error) {
+                if (error.code === 'PGRST116') {
+                    showNotification('Username atau password salah.');
+                } else {
+                    showNotification('Error database: ' + error.message);
+                    console.error("Login error:", error);
+                }
             } else {
                 showNotification('Username atau password salah.');
             }
@@ -179,10 +236,10 @@
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             showLoading(true);
-            const name = registerForm.name.value;
-            const username = registerForm.username.value;
-            const birthYear = parseInt(registerForm.birthYear.value);
-            const password = registerForm.password.value;
+            const name = document.getElementById('register-name').value;
+            const username = document.getElementById('register-username').value;
+            const birthYear = parseInt(document.getElementById('register-birthYear').value);
+            const password = document.getElementById('register-password').value;
             const role = getRoleByBirthYear(birthYear);
             if (!role) {
                 showLoading(false);
@@ -239,7 +296,8 @@
             const container = dashboards.siswa;
             container.innerHTML = `
                 <div class="max-w-2xl mx-auto">
-                    <div id="absensi-form-container" class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+                    <!-- Form Absen Masuk -->
+                    <div id="absensi-form-container" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
                         <h2 class="text-2xl font-bold mb-1">Absensi Hari Ini</h2>
                         <p class="text-gray-400 mb-4">${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                         <form id="absensi-form" class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -249,35 +307,81 @@
                             <button type="submit" name="status" value="Alpa" class="bg-red-600 hover:bg-red-700 p-4 rounded-lg font-bold text-lg"><i class="fas fa-times-circle mr-2"></i>Alpa</button>
                         </form>
                     </div>
-                    <div id="absensi-filled-container" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg mb-6 text-center">
-                        <h2 class="text-2xl font-bold mb-2">Terima Kasih!</h2>
-                        <p class="text-gray-300">Anda sudah mengisi absensi hari ini dengan status:</p>
+                    
+                    <div id="absensi-info-container" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg mb-6 text-center">
+                        <h2 class="text-2xl font-bold mb-2">Absensi Hari Ini</h2>
+                        <p class="text-gray-300">Anda sudah tercatat:</p>
                         <p id="absensi-status-today" class="text-2xl font-bold text-blue-400 mt-2"></p>
+                        <p id="absensi-waktu-masuk" class="text-sm text-gray-400 mt-1"></p>
+                        <div id="absensi-pulang-container" class="mt-6"></div>
                     </div>
+
                     <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
                         <h3 class="text-xl font-bold mb-4">Riwayat Absensi Anda</h3>
                         <div id="siswa-history" class="space-y-3 max-h-96 overflow-y-auto"></div>
                     </div>
                 </div>`;
+            
             showLoading(true);
-            const { data: todayRecord } = await supabaseClient.from('attendance').select('status').eq('user_id', currentUser.id).eq('date', getTodayDateString()).single();
+            const { data: todayRecord } = await supabaseClient.from('attendance')
+                .select('id, status, waktu_masuk, waktu_pulang')
+                .eq('user_id', currentUser.id)
+                .eq('date', getTodayDateString())
+                .single();
+
+            const formContainer = container.querySelector('#absensi-form-container');
+            const infoContainer = container.querySelector('#absensi-info-container');
+            
             if (todayRecord) {
-                container.querySelector('#absensi-form-container').classList.add('hidden');
-                const filledContainer = container.querySelector('#absensi-filled-container');
-                filledContainer.classList.remove('hidden');
+                formContainer.classList.add('hidden');
+                infoContainer.classList.remove('hidden');
+                const waktuMasuk = new Date(todayRecord.waktu_masuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
                 container.querySelector('#absensi-status-today').textContent = todayRecord.status;
+                container.querySelector('#absensi-waktu-masuk').textContent = `Waktu Masuk: ${waktuMasuk} WIB`;
+
+                const pulangContainer = container.querySelector('#absensi-pulang-container');
+                if (todayRecord.status === 'Hadir' && !todayRecord.waktu_pulang) {
+                    pulangContainer.innerHTML = `<button id="absen-pulang-btn" class="w-full text-white bg-orange-600 hover:bg-orange-700 focus:ring-4 focus:ring-orange-800 font-bold rounded-lg text-lg px-5 py-3 text-center"><i class="fas fa-door-open mr-2"></i>ABSEN PULANG</button>`;
+                    pulangContainer.querySelector('#absen-pulang-btn').addEventListener('click', async () => {
+                        showLoading(true);
+                        const { error } = await supabaseClient.from('attendance')
+                            .update({ waktu_pulang: new Date().toISOString() })
+                            .eq('id', todayRecord.id);
+                        showLoading(false);
+                        if (error) showNotification('Gagal absen pulang: ' + error.message);
+                        else {
+                            showNotification('Absen pulang berhasil dicatat.', false);
+                            await renderSiswaDashboard(); 
+                        }
+                    });
+
+                } else if (todayRecord.waktu_pulang) {
+                    const waktuPulang = new Date(todayRecord.waktu_pulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    pulangContainer.innerHTML = `<p class="text-green-400 font-semibold">Anda sudah absen pulang pada pukul ${waktuPulang} WIB.</p>`;
+                } else {
+                    pulangContainer.innerHTML = `<p class="text-gray-500">Absensi pulang tidak diperlukan untuk status ini.</p>`;
+                }
+
+            } else {
+                formContainer.classList.remove('hidden');
+                infoContainer.classList.add('hidden');
             }
-            const { data: history } = await supabaseClient.from('attendance').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+
+            const { data: history } = await supabaseClient.from('attendance').select('*').eq('user_id', currentUser.id).order('waktu_masuk', { ascending: false });
             showLoading(false);
+            
             const historyContainer = container.querySelector('#siswa-history');
             if (history && history.length > 0) {
                 historyContainer.innerHTML = history.map(r => {
-                    const date = new Date(r.created_at);
+                    const date = new Date(r.waktu_masuk);
                     const statusColor = { Hadir: 'text-green-400', Sakit: 'text-yellow-400', Izin: 'text-blue-400', Alpa: 'text-red-400' };
+                    const waktuMasukStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const waktuPulangStr = r.waktu_pulang ? new Date(r.waktu_pulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '---';
+                    
                     return `<div class="bg-gray-700 p-3 rounded-md flex justify-between items-center">
                         <div>
-                            <p class="font-semibold">${date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-                            <p class="text-sm text-gray-400">Pukul ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p class="font-semibold">${date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            <p class="text-sm text-gray-400">Masuk: ${waktuMasukStr} | Pulang: ${waktuPulangStr}</p>
                         </div>
                         <span class="font-bold ${statusColor[r.status] || 'text-gray-400'}">${r.status}</span>
                     </div>`;
@@ -285,14 +389,20 @@
             } else {
                 historyContainer.innerHTML = `<p class="text-gray-500">Belum ada riwayat absensi.</p>`;
             }
+
             container.querySelector('#absensi-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 showLoading(true);
-                const { error } = await supabaseClient.from('attendance').insert({ user_id: currentUser.id, date: getTodayDateString(), status: e.submitter.value });
+                const status = e.submitter.value;
+                const { error } = await supabaseClient.from('attendance').insert({ 
+                    user_id: currentUser.id, 
+                    date: getTodayDateString(), 
+                    status: status 
+                });
                 showLoading(false);
                 if (error) showNotification('Gagal menyimpan absensi: ' + error.message);
                 else {
-                    showNotification(`Absensi "${e.submitter.value}" berhasil dicatat.`, false);
+                    showNotification(`Absensi "${status}" berhasil dicatat.`, false);
                     await renderSiswaDashboard(); 
                 }
             });
@@ -301,14 +411,16 @@
         // --- WALI KELAS DASHBOARD ---
         const renderWaliKelasDashboard = async () => {
             dashboards.walikelas.innerHTML = `
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-bold mb-4">Rekap Absensi Siswa</h2>
-                    <div class="flex space-x-2 mb-4 border-b border-gray-700">
-                        <button class="tab-button py-2 px-4 font-semibold border-b-2" data-tab="harian">Harian</button>
-                        <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="mingguan">Mingguan</button>
-                        <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="bulanan">Bulanan</button>
+                <div class="max-w-7xl mx-auto">
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h2 class="text-2xl font-bold mb-4">Rekap Absensi Siswa</h2>
+                        <div class="flex space-x-2 mb-4 border-b border-gray-700">
+                            <button class="tab-button py-2 px-4 font-semibold border-b-2" data-tab="harian">Harian</button>
+                            <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="mingguan">Mingguan</button>
+                            <button class="tab-button py-2 px-4 text-gray-400 font-semibold border-b-2 border-transparent" data-tab="bulanan">Bulanan</button>
+                        </div>
+                        <div id="rekap-content"></div>
                     </div>
-                    <div id="rekap-content"></div>
                 </div>`;
 
             const rekapContent = dashboards.walikelas.querySelector('#rekap-content');
@@ -320,7 +432,7 @@
                 dashboards.walikelas.querySelector(`[data-tab="${tabName}"]`).classList.add('active', 'text-white', 'border-blue-500');
                 
                 if (tabName === 'harian') {
-                    const { data } = await supabaseClient.from('attendance').select('*, profiles(name)').eq('date', getTodayDateString()).order('created_at');
+                    const { data } = await supabaseClient.from('attendance').select('*, profiles(name), waktu_masuk, waktu_pulang').eq('date', getTodayDateString()).order('waktu_masuk');
                     rekapContent.innerHTML = generateRekapHarianTable(data);
                 } else {
                     const { startDate, endDate, title } = getRekapDates(tabName);
@@ -353,9 +465,11 @@
 
         const generateRekapHarianTable = (records) => {
             if (!records || records.length === 0) return `<p class="text-gray-500">Belum ada absensi hari ini.</p>`;
-            let table = `<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama Siswa</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Waktu</th></tr></thead><tbody>`;
+            let table = `<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama Siswa</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Waktu Masuk</th><th class="px-6 py-3">Waktu Pulang</th></tr></thead><tbody>`;
             records.forEach(r => {
-                table += `<tr class="bg-gray-800 border-b border-gray-700"><td class="px-6 py-4 font-medium">${r.profiles.name}</td><td class="px-6 py-4">${r.status}</td><td class="px-6 py-4">${new Date(r.created_at).toLocaleTimeString('id-ID')}</td></tr>`;
+                const waktuMasukStr = new Date(r.waktu_masuk).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+                const waktuPulangStr = r.waktu_pulang ? new Date(r.waktu_pulang).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : '---';
+                table += `<tr class="bg-gray-800 border-b border-gray-700"><td class="px-6 py-4 font-medium">${r.profiles.name}</td><td class="px-6 py-4">${r.status}</td><td class="px-6 py-4">${waktuMasukStr}</td><td class="px-6 py-4">${waktuPulangStr}</td></tr>`;
             });
             return table + `</tbody></table></div>`;
         };
@@ -365,11 +479,13 @@
                 acc[siswa.id] = { name: siswa.name, Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0 };
                 return acc;
             }, {});
-            records.forEach(r => {
-                if (summary[r.profiles.id] && summary[r.profiles.id][r.status] !== undefined) {
-                    summary[r.profiles.id][r.status]++;
-                }
-            });
+            if(records) {
+                records.forEach(r => {
+                    if (summary[r.profiles.id] && summary[r.profiles.id][r.status] !== undefined) {
+                        summary[r.profiles.id][r.status]++;
+                    }
+                });
+            }
             let table = `<h3 class="text-lg font-semibold mb-4">${title}</h3><div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3 text-center">Hadir</th><th class="px-6 py-3 text-center">Sakit</th><th class="px-6 py-3 text-center">Izin</th><th class="px-6 py-3 text-center">Alpa</th></tr></thead><tbody>`;
             for (const id in summary) {
                 const s = summary[id];
@@ -385,25 +501,27 @@
             showLoading(false);
 
             dashboards.admin.innerHTML = `
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold">Manajemen Pengguna</h2>
-                        <button id="add-user-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm"><i class="fas fa-plus mr-2"></i>Tambah User</button>
-                    </div>
-                    <div id="user-management-table" class="overflow-x-auto">
-                        <table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3">Username</th><th class="px-6 py-3">Role</th><th class="px-6 py-3">Aksi</th></tr></thead>
-                        <tbody>
-                            ${users.map(user => `
-                                <tr class="bg-gray-800 border-b border-gray-700">
-                                    <td class="px-6 py-4 font-medium">${user.name}</td>
-                                    <td class="px-6 py-4">${user.username}</td>
-                                    <td class="px-6 py-4 capitalize">${user.role}</td>
-                                    <td class="px-6 py-4 flex space-x-2">
-                                        <button class="edit-user-btn text-blue-400 hover:text-blue-300" data-id="${user.id}"><i class="fas fa-edit"></i></button>
-                                        <button class="delete-user-btn text-red-400 hover:text-red-300" data-id="${user.id}" data-name="${user.name}"><i class="fas fa-trash"></i></button>
-                                    </td>
-                                </tr>`).join('')}
-                        </tbody></table>
+                <div class="max-w-7xl mx-auto">
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-bold">Manajemen Pengguna</h2>
+                            <button id="add-user-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm"><i class="fas fa-plus mr-2"></i>Tambah User</button>
+                        </div>
+                        <div id="user-management-table" class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-300"><thead class="text-xs text-gray-400 uppercase bg-gray-700"><tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3">Username</th><th class="px-6 py-3">Role</th><th class="px-6 py-3">Aksi</th></tr></thead>
+                            <tbody>
+                                ${users.map(user => `
+                                    <tr class="bg-gray-800 border-b border-gray-700">
+                                        <td class="px-6 py-4 font-medium">${user.name}</td>
+                                        <td class="px-6 py-4">${user.username}</td>
+                                        <td class="px-6 py-4 capitalize">${user.role}</td>
+                                        <td class="px-6 py-4 flex space-x-2">
+                                            <button class="edit-user-btn text-blue-400 hover:text-blue-300" data-id="${user.id}"><i class="fas fa-edit"></i></button>
+                                            <button class="delete-user-btn text-red-400 hover:text-red-300" data-id="${user.id}" data-name="${user.name}"><i class="fas fa-trash"></i></button>
+                                        </td>
+                                    </tr>`).join('')}
+                            </tbody></table>
+                        </div>
                     </div>
                 </div>`;
             
@@ -484,9 +602,6 @@
             modalContainer.querySelector('#cancel-delete-btn').addEventListener('click', () => modalContainer.classList.add('hidden'));
             modalContainer.querySelector('#confirm-delete-btn').addEventListener('click', async () => {
                 showLoading(true);
-                // Hapus absensi terkait terlebih dahulu
-                await supabaseClient.from('attendance').delete().eq('user_id', userId);
-                // Hapus profil pengguna
                 const { error } = await supabaseClient.from('profiles').delete().eq('id', userId);
                 showLoading(false);
                 if (error) showNotification('Gagal menghapus: ' + error.message);
@@ -500,6 +615,7 @@
 
         // --- INITIAL LOAD ---
         const init = async () => {
+            await initializeDefaultData(); 
             const loggedInUserId = sessionStorage.getItem('loggedInUserId');
             if (loggedInUserId) await renderDashboard();
             else showView('login');
@@ -509,4 +625,3 @@
     </script>
 </body>
 </html>
-
